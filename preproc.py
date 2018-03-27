@@ -13,21 +13,27 @@ from keras.layers import LSTM
 from sklearn import metrics
 
 class Setup:
-    def __init__(self,valcol,num_units, modpath=""):
+    def __init__(self,valcol,num_units, modpath="",second_layer=False, optim="rmsprop"):
         self.unNormed = self.get_frames()
         self.frames = {}
+        self.aggregate=[]
         self.valcol = valcol
         self.chunks={}
         self.maybe_chunks = []
         for k,v in self.unNormed.items():
             temp_frame = self.get_cols(v)
-            normed = self.normalize_frame(temp_frame)
-            shifted = self.add_labels(normed, -1)
-            
+            #self.aggregate.extend([float(a) for a in temp_frame[[self.valcol]].values])
+            #normed = self.normalize_frame(temp_frame)
+            shifted = self.add_labels(temp_frame, -1)
+            self.aggregate.append(shifted)
             self.frames[k] = shifted
             self.unNormed[k]=temp_frame
+        #print(self.aggregate)
+        concatted_frame=pd.concat(self.aggregate)
+        self.master_frame = concatted_frame.dropna(how='any')
+        self.mean, self.std = self.normalize_master()
         if modpath=="":
-            self.mod = self.build_mod(num_units)
+            self.mod = self.build_mod(num_units,second_layer,optim)
         else:
             self.mod = keras.models.load_model(modpath)
             
@@ -38,15 +44,7 @@ class Setup:
             toext = [x[[self.valcol]].values for x in keyList]
             self.maybe_chunks.extend(toext)
 
-    def norm_window(self, prewind, wind):
-        # for i in range(1,len(self.maybe_chunks)-1):
-        #     divisor = self.maybe_chunks[i-1][-1][0]
-        #     for j in range(len(self.maybe_chunks[i])):
-        #         self.maybe_chunks[i][j][0] = self.maybe_chunks[i][j][0]/divisor
-        divisor = prewind[-1][0]
-        for i in range(0,len(wind)-1):
-            temp = wind[i][0]/divisor
-            wind[i][0]=temp
+    
         
     def do_run(self,frame_name):
         focus_data = self.frames[frame_name]
@@ -89,6 +87,14 @@ class Setup:
         newframe = (frame-frame.mean())/frame.std()
         return newframe
 
+    def normalize_master(self):
+        mean = self.master_frame[[self.valcol]].mean().values[0]
+        std = self.master_frame[[self.valcol]].std().values[0]
+        self.master_frame[[self.valcol]] = (self.master_frame[[self.valcol]]-mean)/std
+        self.master_frame[['label']] = (self.master_frame[['label']]-mean)/std
+        return mean, std
+        
+
     def add_labels(self,frame,shift):
         frame[['label']] = frame[[self.valcol]].shift(shift)
         return frame
@@ -103,11 +109,15 @@ class Setup:
         trainXreshaped = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
         return trainXreshaped
 
-    def build_mod(self,num_units):
+    def build_mod(self,num_units,second_layer=False,optim="rmsprop"):
         mod = Sequential()
-        mod.add(LSTM(num_units, input_shape=(None, 1)))
+        if second_layer:
+            mod.add(LSTM(num_units, return_sequences=True,input_shape=(None, 1)))
+            mod.add(LSTM(num_units))
+        else:
+            mod.add(LSTM(num_units, input_shape=(None, 1)))
         mod.add(Dense(1))
-        mod.compile(loss="mse", optimizer="rmsprop")
+        mod.compile(loss="mse", optimizer=optim)
         return mod
     
     def fit_model(self,train, trainXreshaped):
@@ -117,18 +127,22 @@ class Setup:
         testXreshaped = self.reshape_train(test)
         return self.mod.predict(testXreshaped)
 
+# def main():
+#     util = Setup('bitfinex:btcusd')
+#     longest_frame_name = ""
+#     for k,v in util.frames.items():
+#         if longest_frame_name in util.frames:
+#             if len(util.frames[k].index)>len(util.frames[longest_frame_name].index):
+#                 longest_frame_name = k
+#         else:
+#             longest_frame_name = k
+    
+#     predictions, y_vals, rmse,predflat, yflat= util.do_run(longest_frame_name)
+    
+#     plt.plot(y_vals)
+#     plt.plot(predictions)
+#     plt.show()
 def main():
-    util = Setup('bitfinex:btcusd')
-    longest_frame_name = ""
-    for k,v in util.frames.items():
-        if longest_frame_name in util.frames:
-            if len(util.frames[k].index)>len(util.frames[longest_frame_name].index):
-                longest_frame_name = k
-        else:
-            longest_frame_name = k
-    
-    predictions, y_vals, rmse,predflat, yflat= util.do_run(longest_frame_name)
-    
-    plt.plot(y_vals)
-    plt.plot(predictions)
-    plt.show()
+    util = Setup('bitfinex:btcusd',6)
+    print(util.master_frame)
+main()
