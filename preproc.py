@@ -22,13 +22,10 @@ class Setup:
         self.maybe_chunks = []
         for k,v in self.unNormed.items():
             temp_frame = self.get_cols(v)
-            #self.aggregate.extend([float(a) for a in temp_frame[[self.valcol]].values])
-            #normed = self.normalize_frame(temp_frame)
             shifted = self.add_labels(temp_frame, -1)
             self.aggregate.append(shifted)
             self.frames[k] = shifted
             self.unNormed[k]=temp_frame
-        #print(self.aggregate)
         concatted_frame=pd.concat(self.aggregate)
         self.master_frame = concatted_frame.dropna(how='any')
         self.mean, self.std = self.normalize_master()
@@ -36,15 +33,20 @@ class Setup:
             self.mod = self.build_mod(num_units,second_layer,optim)
         else:
             self.mod = keras.models.load_model(modpath)
-            
-    def break_into_chunks(self):
-        for k,v in self.unNormed.items():
-            keyList = np.array_split(v, 25)
-            #self.chunks[k] = keyList
-            toext = [x[[self.valcol]].values for x in keyList]
-            self.maybe_chunks.extend(toext)
 
-    
+    def master_run(self):
+        train, test = self.train_test_split(self.master_frame)
+        trainReshaped = self.reshape_train(train)
+        hist = self.fit_model(train, trainReshaped)
+        pred_results = self.get_test_pred(test)
+        testY = test[["label"]].values.tolist()
+        testYflat = [b[0] for b in testY]
+        testPredList = pred_results.tolist()
+        testPredFlat = [b[0] for b in testPredList]
+        normedPred = [x*self.std + self.mean for x in testPredFlat]
+        normedY = [x*self.std+self.mean for x in testYflat]
+        retdict ={"Predicted Values": normedPred, "Actual Values": normedY, "RMSE": math.sqrt(metrics.mean_squared_error(normedY[:-2], normedPred[:-2])), "Normalized Actual": testYflat, "Normalized Predictions": testPredFlat} 
+        return hist, retdict
         
     def do_run(self,frame_name):
         focus_data = self.frames[frame_name]
@@ -121,28 +123,8 @@ class Setup:
         return mod
     
     def fit_model(self,train, trainXreshaped):
-        return self.mod.fit(trainXreshaped, train[["label"]], epochs=100, batch_size=1, verbose=2)
+        return self.mod.fit(trainXreshaped, train[["label"]], epochs=100, batch_size=1, verbose=1)
 
     def get_test_pred(self, test):
         testXreshaped = self.reshape_train(test)
         return self.mod.predict(testXreshaped)
-
-# def main():
-#     util = Setup('bitfinex:btcusd')
-#     longest_frame_name = ""
-#     for k,v in util.frames.items():
-#         if longest_frame_name in util.frames:
-#             if len(util.frames[k].index)>len(util.frames[longest_frame_name].index):
-#                 longest_frame_name = k
-#         else:
-#             longest_frame_name = k
-    
-#     predictions, y_vals, rmse,predflat, yflat= util.do_run(longest_frame_name)
-    
-#     plt.plot(y_vals)
-#     plt.plot(predictions)
-#     plt.show()
-def main():
-    util = Setup('bitfinex:btcusd',6)
-    print(util.master_frame)
-main()

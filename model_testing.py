@@ -38,24 +38,23 @@ def save_info(fname, hist, num_units, output_vector,targ_name):
 
 
 def n_unit(n):
-    util = preproc.Setup('bitfinex:btcusd',n,optim="adam")
-    longest_name = get_longest_name(util)
-    hist, outvec = util.do_run(longest_name)
+    util = preproc.Setup('bitfinex:btcusd',n)
+    #longest_name = get_longest_name(util)
+    hist, outvec = util.master_run()
     mod_name = "models/test_"+str(n)+"_unit.h5"
     util.mod.save(mod_name)
-    targ_name = str(n)+"unit_data_adam.txt"
-    save_info(longest_name, hist, str(n),outvec,targ_name)
+    targ_name = str(n)+"unit_data.txt"
+    save_info("master_frame_run", hist, str(n),outvec,targ_name)
 
 def multi_layer(n):
     util = preproc.Setup('bitfinex:btcusd',n,second_layer=True)
-    longest_name = get_longest_name(util)
-    hist, outvec = util.do_run(longest_name)
+    hist, outvec = util.master_run()
     mod_name = "models/test_"+str(n)+"_unit_2layer.h5"
     util.mod.save(mod_name)
     targ_name = str(n)+"unit_data_2layer.txt"
-    save_info(longest_name, hist, str(n),outvec,targ_name)
+    save_info("master_frame_run", hist, str(n),outvec,targ_name)
 
 def main():
     #multi_layer(6)
-    n_unit(6)
+    n_unit(2)
 main()

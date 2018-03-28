@@ -31,8 +31,9 @@ def performance_plot(targ_name, dest_name):
 
 def loss_plot(targ_name, dest_name):
     loss, performance_tab = get_results_from_file(targ_name)
-    loss_fig = plt.figure(figsize=(8,8),dpi=800)
-    plt.plot(loss, 'bo',markersize=3)
+    #loss2, perf2 = get_results_from_file()
+    loss_fig = plt.figure(dpi=1200)
+    plt.plot(loss)
     #plt.axis([0,100,0,1])
     #plt.plot(loss)
     plt.ylabel("Loss")
