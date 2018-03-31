@@ -13,16 +13,18 @@ from keras.layers import LSTM
 from sklearn import metrics
 
 class Setup:
-    def __init__(self,valcol,num_units, modpath="",second_layer=False, optim="rmsprop"):
+    def __init__(self,valcol,num_units, modpath="", second_layer=False, optim="rmsprop"):
         self.unNormed = self.get_frames()
         self.frames = {}
-        self.aggregate=[]
         self.valcol = valcol
+        self.aggregate=[]
         self.chunks={}
         self.maybe_chunks = []
         for k,v in self.unNormed.items():
-            temp_frame = self.get_cols(v)
+            #first = self.get_cols(v)
+            temp_frame = self.get_cols(v) #self.make_diffs(first)
             shifted = self.add_labels(temp_frame, -1)
+            #print(len(temp_frame.index))
             self.aggregate.append(shifted)
             self.frames[k] = shifted
             self.unNormed[k]=temp_frame
@@ -32,8 +34,12 @@ class Setup:
         if modpath=="":
             self.mod = self.build_mod(num_units,second_layer,optim)
         else:
-            self.mod = keras.models.load_model(modpath)
+            self.mod = keras.models.load_model(modpath)        
 
+    def make_diffs(self, frame):
+        frame = frame - frame.values.tolist()[0][0]
+        return frame
+            
     def master_run(self):
         train, test = self.train_test_split(self.master_frame)
         trainReshaped = self.reshape_train(train)
@@ -43,9 +49,12 @@ class Setup:
         testYflat = [b[0] for b in testY]
         testPredList = pred_results.tolist()
         testPredFlat = [b[0] for b in testPredList]
+        testX = test[[self.valcol]].values.tolist()
+        testXflat = [b[0] for b in testX]
+        normedX = [x*self.std + self.mean for x in testXflat]
         normedPred = [x*self.std + self.mean for x in testPredFlat]
         normedY = [x*self.std+self.mean for x in testYflat]
-        retdict ={"Predicted Values": normedPred, "Actual Values": normedY, "RMSE": math.sqrt(metrics.mean_squared_error(normedY[:-2], normedPred[:-2])), "Normalized Actual": testYflat, "Normalized Predictions": testPredFlat} 
+        retdict ={"Predicted Values": normedPred, "Actual Values": normedY, "RMSE": math.sqrt(metrics.mean_squared_error(normedY[:-2], normedPred[:-2])), "Normalized Actual": testYflat, "Normalized Predictions": testPredFlat, "X Values": normedX}
         return hist, retdict
         
     def do_run(self,frame_name):
@@ -128,3 +137,7 @@ class Setup:
     def get_test_pred(self, test):
         testXreshaped = self.reshape_train(test)
         return self.mod.predict(testXreshaped)
+
+def main():
+    util = Setup('bitfinex:btcusd', 2)
+main()

@@ -29,6 +29,15 @@ def performance_plot(targ_name, dest_name):
     plt.title(targ_name + " Performance")
     perf_fig.savefig(dest_name, bbox_inches='tight')
 
+def diff_plot(targ_name, dest_name):
+    loss, performance_tab = get_results_from_file(targ_name)
+    perf_fig = plt.figure(figsize=(15,8),dpi=1200)
+    plt.plot(performance_tab["Diff"])
+    #plt.plot(performance_tab["Pred"])
+    plt.ylabel("Diff")
+    plt.title(targ_name + "Diff")
+    perf_fig.savefig(dest_name, bbox_inches='tight')
+    
 def loss_plot(targ_name, dest_name):
     loss, performance_tab = get_results_from_file(targ_name)
     #loss2, perf2 = get_results_from_file()
